@@ -1,0 +1,5 @@
+
+*{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+body{margin:0;background:#f8fafc;overscroll-behavior:none}
+::-webkit-scrollbar{display:none}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}

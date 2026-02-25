@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Mi Caja Real"/>
+<meta name="theme-color" content="#020617"/>
+<title>Mi Caja Real</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+*{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+body{margin:0;background:#f8fafc;overscroll-behavior:none}
+::-webkit-scrollbar{display:none}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+
+const KEY = 'mcr_v4';
+const load = () => { try { const r=localStorage.getItem(KEY); return r?JSON.parse(r):null; } catch{return null;} };
+const save = (d) => { try { localStorage.setItem(KEY,JSON.stringify(d)); } catch{} };
+
+const fmt = n => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n||0);
+
+// ── SVG Icons (no external dependency) ───────────────────────────
+const icons = {
+  Home: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  Cart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+  Calc: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>,
+  Down: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>,
+  Up:   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+  Users:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  Box:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  Plus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  Trash:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>,
+  X:    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  List: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  Hist: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>,
+};
+const Ic = ({k,size=18,cls=''}) => <span className={cls} style={{display:'inline-flex',width:size,height:size,flexShrink:0}}>{icons[k]}</span>;
+
+const defaultState = { transactions:[], inventory:[], activeTabs:[], cashClosures:[], debts:[], shoppingList:[] };
+
+function App() {
+  const [view, setView] = useState('inicio');
+  const [state, setState] = useState(() => load() || defaultState);
+  const [selTab, setSelTab] = useState(null);
+
+  useEffect(() => { save(state); }, [state]);
+  const upd = patch => setState(p => ({...p,...patch}));
+
+  const bal = useMemo(() => {
+    let ef=0,bn=0;
+    state.transactions.forEach(t => {
+      const a=parseFloat(t.amount);
+      if(t.type==='ingreso'){t.method==='efectivo'?ef+=a:bn+=a;}
+      else{t.method==='efectivo'?ef-=a:bn-=a;}
+    });
+    return {ef,bn};
+  },[state.transactions]);
+
+  const nav = [
+    {id:'inicio',  label:'Inicio',   k:'Home'},
+    {id:'ventas',  label:'Vender',   k:'Cart'},
+    {id:'cierre',  label:'Cierre',   k:'Calc'},
+    {id:'gastos',  label:'Gastos',   k:'Down'},
+    {id:'cuentas', label:'Cuentas',  k:'Users'},
+    {id:'inventario',label:'Stock',  k:'Box'},
+  ];
+
+  // ── NAV ────────────────────────────────────────────────────────
+  const BottomNav = () => (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 flex md:hidden" style={{paddingBottom:'env(safe-area-inset-bottom,0)'}}>
+      {nav.map(({id,label,k}) => (
+        <button key={id} onClick={()=>setView(id)} className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${view===id?'text-emerald-400':'text-slate-600'}`}>
+          <Ic k={k} size={18}/>
+          <span style={{fontSize:'8px'}} className="font-black uppercase tracking-tight">{label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+  const Sidebar = () => (
+    <aside className="hidden md:flex flex-col bg-slate-950 text-white w-52 flex-shrink-0 h-screen p-4">
+      <h1 className="text-center text-sm font-black text-emerald-400 tracking-tighter italic uppercase mt-4 mb-6">Mi Caja Real</h1>
+      {nav.map(({id,label,k}) => (
+        <button key={id} onClick={()=>setView(id)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl mb-1 transition-all ${view===id?'bg-emerald-600 text-white':'text-slate-500 hover:bg-slate-900'}`}>
+          <Ic k={k} size={17}/> <span className="font-black text-xs uppercase tracking-tight">{label}</span>
+        </button>
+      ))}
+    </aside>
+  );
+
+  // ── INICIO ─────────────────────────────────────────────────────
+  const DashboardView = () => {
+    const [txt,setTxt] = useState('');
+    const add = () => { if(!txt.trim())return; upd({shoppingList:[{id:Date.now(),text:txt},...state.shoppingList]}); setTxt(''); };
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-emerald-600 text-white p-5 rounded-3xl">
+            <p className="opacity-60 font-black uppercase tracking-widest" style={{fontSize:'9px'}}>Efectivo</p>
+            <p className="text-2xl font-black mt-1 tracking-tighter">{fmt(bal.ef)}</p>
+          </div>
+          <div className="bg-slate-900 text-white p-5 rounded-3xl">
+            <p className="opacity-60 font-black uppercase tracking-widest" style={{fontSize:'9px'}}>Banco/Nequi</p>
+            <p className="text-2xl font-black mt-1 tracking-tighter text-emerald-400">{fmt(bal.bn)}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+          <div className="p-4 border-b flex items-center gap-2"><Ic k="Hist" size={13} cls="text-slate-400"/><span className="font-black text-slate-400 uppercase tracking-widest" style={{fontSize:'10px'}}>Movimientos Recientes</span></div>
+          {state.transactions.length===0
+            ? <p className="p-8 text-center text-slate-300 font-bold italic text-sm">No hay movimientos aún</p>
+            : <div className="divide-y">{[...state.transactions].reverse().slice(0,8).map(t=>(
+                <div key={t.id} className="p-3 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <span className={`p-2 rounded-xl inline-flex ${t.type==='ingreso'?'bg-emerald-100 text-emerald-600':'bg-red-100 text-red-600'}`}>
+                      <Ic k={t.type==='ingreso'?'Up':'Down'} size={13}/>
+                    </span>
+                    <div>
+                      <p className="font-bold text-slate-700 text-sm">{t.description}</p>
+                      <p className="text-slate-400 uppercase font-medium" style={{fontSize:'10px'}}>{t.method} • {new Date(t.date).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</p>
+                    </div>
+                  </div>
+                  <span className={`font-black text-sm ${t.type==='ingreso'?'text-emerald-600':'text-red-600'}`}>{t.type==='ingreso'?'+':'-'}{fmt(t.amount)}</span>
+                </div>
+              ))}</div>
+          }
+        </div>
+        <div className="bg-white p-4 rounded-3xl border">
+          <div className="flex items-center gap-2 mb-3"><Ic k="List" size={13} cls="text-slate-400"/><span className="font-black text-slate-400 uppercase tracking-widest" style={{fontSize:'10px'}}>Por Comprar</span></div>
+          <div className="flex gap-2 mb-3">
+            <input value={txt} onChange={e=>setTxt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')add();}} placeholder="Anotar que falta..." className="flex-1 bg-slate-50 p-3 rounded-xl text-sm outline-none border-2 border-transparent focus:border-emerald-400"/>
+            <button onClick={add} className="bg-emerald-600 text-white px-3 rounded-xl flex items-center justify-center"><Ic k="Plus" size={16} cls="text-white"/></button>
+          </div>
+          {state.shoppingList.map(item=>(
+            <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl mb-2">
+              <span className="text-sm font-bold text-slate-600">{item.text}</span>
+              <button onClick={()=>upd({shoppingList:state.shoppingList.filter(i=>i.id!==item.id)})} className="text-slate-300"><Ic k="Trash" size={14}/></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ── VENTAS ─────────────────────────────────────────────────────
+  const SalesView = () => {
+    const [cash,setCash] = useState('');
+    const [chk,setChk] = useState(false);
+    const [open,setOpen] = useState(false);
+    const tabs = state.activeTabs;
+    const cur = tabs.find(t=>t.id===selTab)??null;
+    useEffect(()=>{ if(selTab===null&&tabs.length>0)setSelTab(tabs[0].id); },[]);
+    const change = cash?parseFloat(cash)-(cur?.total||0):0;
+
+    const newOrder = () => {
+      const id=Date.now();
+      upd({activeTabs:[...tabs,{id,name:`Orden ${tabs.length+1}`,items:[],total:0}]});
+      setSelTab(id); setChk(false); setCash(''); setOpen(false);
+    };
+    const closeTab = id => {
+      const rest=tabs.filter(t=>t.id!==id);
+      upd({activeTabs:rest});
+      if(selTab===id)setSelTab(rest[0]?.id??null);
+    };
+    const addItem = p => {
+      if(!selTab)return;
+      upd({activeTabs:tabs.map(t=>t.id===selTab?{...t,items:[...t.items,{...p,cartId:Date.now()}],total:t.total+parseFloat(p.price)}:t)});
+    };
+    const rmItem = cid => {
+      if(!cur)return;
+      const item=cur.items.find(i=>i.cartId===cid);
+      if(!item)return;
+      upd({activeTabs:tabs.map(t=>t.id===selTab?{...t,items:t.items.filter(i=>i.cartId!==cid),total:Math.max(0,t.total-parseFloat(item.price))}:t)});
+    };
+    const checkout = method => {
+      if(!cur||cur.total<=0)return;
+      const inv=[...state.inventory];
+      cur.items.forEach(item=>(item.recipe||[]).forEach(ing=>{
+        const i=inv.findIndex(x=>x.id===ing.id);
+        if(i!==-1)inv[i].stock=(parseFloat(inv[i].stock)||0)-(parseFloat(ing.qty)||0);
+      }));
+      const rest=tabs.filter(t=>t.id!==selTab);
+      upd({inventory:inv,activeTabs:rest,transactions:[...state.transactions,{id:Date.now(),type:'ingreso',category:'venta',method,amount:cur.total,description:`Venta: ${cur.name}`,date:new Date().toISOString()}]});
+      setSelTab(rest[0]?.id??null); setChk(false); setCash(''); setOpen(false);
+    };
+
+    const prods = state.inventory.filter(i=>i.isProduct);
+
+    return (
+      <div className="flex flex-col gap-3" style={{height:'calc(100vh - 100px)'}}>
+        <div className="flex gap-2 overflow-x-auto flex-shrink-0 pb-1">
+          {tabs.map((tab,idx)=>(
+            <button key={tab.id} onClick={()=>{setSelTab(tab.id);setChk(false);setCash('');setOpen(false);}}
+              className={`px-4 py-2 rounded-2xl flex items-center gap-1.5 shrink-0 border-2 text-sm whitespace-nowrap transition-all ${selTab===tab.id?'bg-emerald-600 border-emerald-600 text-white font-black':'bg-white border-slate-200 text-slate-500 font-bold'}`}>
+              Cliente {idx+1}
+              {tab.items.length>0&&<span className={`font-black rounded-full w-4 h-4 flex items-center justify-center ${selTab===tab.id?'bg-white text-emerald-600':'bg-emerald-100 text-emerald-600'}`} style={{fontSize:'9px'}}>{tab.items.length}</span>}
+            </button>
+          ))}
+          <button onClick={newOrder} className="px-4 py-2 bg-slate-900 text-white rounded-2xl font-black shrink-0 flex items-center gap-1.5 text-sm whitespace-nowrap">
+            <Ic k="Plus" size={15} cls="text-white"/> NUEVO
+          </button>
+        </div>
+
+        {cur ? (
+          <div className="flex-1 min-h-0 relative">
+            <div className="h-full overflow-y-auto grid grid-cols-2 gap-3 content-start pb-24">
+              {prods.length===0
+                ? <p className="col-span-2 p-8 text-center text-slate-300 font-bold italic text-sm">Crea productos en Stock primero</p>
+                : prods.map(p=>(
+                    <button key={p.id} onClick={()=>addItem(p)} className="bg-white p-4 rounded-3xl border-2 border-transparent active:border-emerald-500 text-left active:scale-95 flex flex-col justify-between h-24 shadow-sm">
+                      <span className="font-black text-slate-700 leading-tight uppercase text-xs">{p.name}</span>
+                      <span className="text-emerald-600 font-black text-base">{fmt(p.price)}</span>
+                    </button>
+                  ))
+              }
+            </div>
+
+            {cur.items.length>0&&!open&&(
+              <button onClick={()=>setOpen(true)} className="fixed bottom-20 right-4 bg-emerald-600 text-white rounded-full shadow-2xl flex items-center gap-2 px-5 py-3 font-black z-40">
+                <Ic k="Cart" size={18} cls="text-white"/>
+                <span>{cur.items.length} — {fmt(cur.total)}</span>
+              </button>
+            )}
+
+            {open&&(
+              <div className="fixed inset-0 z-40 flex flex-col justify-end bg-black bg-opacity-30" onClick={()=>setOpen(false)}>
+                <div className="bg-white rounded-t-3xl shadow-2xl flex flex-col" style={{maxHeight:'80vh'}} onClick={e=>e.stopPropagation()}>
+                  <div className="px-4 py-3 bg-slate-950 text-white flex justify-between items-center rounded-t-3xl">
+                    <span className="font-black uppercase tracking-widest" style={{fontSize:'11px'}}>Orden activa</span>
+                    <button onClick={()=>{closeTab(selTab);setOpen(false);}} className="text-slate-500"><Ic k="X" size={16} cls="text-slate-400"/></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    {cur.items.map(item=>(
+                      <div key={item.cartId} className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                        <span className="font-bold text-slate-600 flex-1 text-sm truncate">{item.name}</span>
+                        <span className="font-black text-sm flex-shrink-0">{fmt(item.price)}</span>
+                        <button onClick={()=>rmItem(item.cartId)} className="text-slate-300 ml-1"><Ic k="X" size={13}/></button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-4 bg-slate-50 border-t">
+                    <div className="flex justify-between font-black text-lg mb-3">
+                      <span className="text-slate-600">Total</span>
+                      <span className="text-emerald-600">{fmt(cur.total)}</span>
+                    </div>
+                    {!chk
+                      ? <button onClick={()=>setChk(true)} className="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-black text-base active:scale-95">COBRAR →</button>
+                      : <div className="space-y-2">
+                          <div className="bg-white p-3 rounded-xl border-2 border-emerald-200">
+                            <label className="font-black uppercase block mb-1 text-slate-400" style={{fontSize:'9px'}}>Efectivo recibido:</label>
+                            <input type="number" value={cash} autoFocus onChange={e=>setCash(e.target.value)} className="w-full text-2xl font-black outline-none text-emerald-700" placeholder="0"/>
+                          </div>
+                          {cash&&<div className={`p-2.5 rounded-xl text-center text-white ${change>=0?'bg-emerald-600':'bg-red-500'}`}>
+                            <p style={{fontSize:'9px'}} className="font-bold uppercase opacity-80">{change>=0?'Cambio':'Falta'}:</p>
+                            <p className="text-xl font-black">{fmt(Math.abs(change))}</p>
+                          </div>}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button onClick={()=>checkout('efectivo')} className="bg-slate-900 text-white py-3 rounded-xl font-black text-xs active:scale-95">💵 EFECTIVO</button>
+                            <button onClick={()=>checkout('banco')} className="bg-blue-600 text-white py-3 rounded-xl font-black text-xs active:scale-95">💳 BANCO</button>
+                          </div>
+                          <button onClick={()=>{setChk(false);setCash('');}} className="w-full text-slate-400 font-black uppercase py-1" style={{fontSize:'10px'}}>← Volver</button>
+                        </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <span className="text-slate-200"><Ic k="Cart" size={60}/></span>
+            <p className="font-black italic uppercase tracking-widest text-slate-400 text-sm">Crea una orden</p>
+            <button onClick={newOrder} className="bg-emerald-600 text-white px-8 py-4 rounded-3xl font-black shadow-xl flex items-center gap-2">
+              <Ic k="Plus" size={18} cls="text-white"/> EMPEZAR VENTA
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── GASTOS ─────────────────────────────────────────────────────
+  const ExpensesView = () => {
+    const [amt,setAmt]=useState('');
+    const [desc,setDesc]=useState('');
+    const [mth,setMth]=useState('efectivo');
+    const save = () => {
+      if(!amt||!desc)return;
+      upd({transactions:[...state.transactions,{id:Date.now(),type:'gasto',category:'gasto',method:mth,amount:parseFloat(amt),description:desc,date:new Date().toISOString()}]});
+      setAmt(''); setDesc('');
+    };
+    return (
+      <div className="space-y-4">
+        <div className="bg-white p-5 rounded-3xl border shadow-sm space-y-4">
+          <h2 className="text-xl font-black italic uppercase">Registrar Gasto</h2>
+          <div>
+            <label className="font-black text-slate-400 uppercase block mb-1" style={{fontSize:'10px'}}>Monto</label>
+            <input type="number" value={amt} onChange={e=>setAmt(e.target.value)} className="w-full text-4xl font-black p-3 bg-slate-50 border-4 border-transparent rounded-2xl focus:bg-white focus:border-red-500 outline-none text-red-600" placeholder="0"/>
+          </div>
+          <div>
+            <label className="font-black text-slate-400 uppercase block mb-1" style={{fontSize:'10px'}}>Descripción</label>
+            <input value={desc} onChange={e=>setDesc(e.target.value)} className="w-full p-3 bg-slate-50 border-2 border-transparent rounded-2xl outline-none font-bold" placeholder="¿En qué se gastó?"/>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {['efectivo','banco'].map(m=>(
+              <button key={m} onClick={()=>setMth(m)} className={`p-3 border-2 rounded-2xl font-black uppercase transition-all ${mth===m?'bg-slate-900 border-slate-900 text-white':'border-slate-100 text-slate-400'}`} style={{fontSize:'11px'}}>
+                {m==='efectivo'?'💵 Efectivo':'💳 Banco'}
+              </button>
+            ))}
+          </div>
+          <button onClick={save} disabled={!amt||!desc} className="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl active:scale-95 disabled:opacity-40">CONFIRMAR GASTO</button>
+        </div>
+        <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
+          <div className="p-4 border-b"><span className="font-black text-slate-400 uppercase tracking-widest" style={{fontSize:'10px'}}>Historial de Salidas</span></div>
+          {state.transactions.filter(t=>t.type==='gasto').length===0
+            ? <p className="p-8 text-center text-slate-300 font-bold italic">No hay gastos</p>
+            : <div className="divide-y">{[...state.transactions].filter(t=>t.type==='gasto').reverse().map(t=>(
+                <div key={t.id} className="p-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-slate-700 text-sm">{t.description}</p>
+                    <p className="text-slate-400 uppercase font-black" style={{fontSize:'10px'}}>{new Date(t.date).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})} • {t.method}</p>
+                  </div>
+                  <span className="font-black text-red-600 text-sm">-{fmt(t.amount)}</span>
+                </div>
+              ))}</div>
+          }
+        </div>
+      </div>
+    );
+  };
+
+  // ── CUENTAS ────────────────────────────────────────────────────
+  const DebtsView = () => {
+    const [nm,setNm]=useState('');
+    const [amt,setAmt]=useState('');
+    const [tp,setTp]=useState('por_cobrar');
+    const add = () => {
+      if(!nm||!amt)return;
+      upd({debts:[...state.debts,{id:Date.now(),name:nm,amount:parseFloat(amt),type:tp,date:new Date().toISOString()}]});
+      setNm(''); setAmt('');
+    };
+    return (
+      <div className="space-y-4">
+        <div className="bg-white p-5 rounded-3xl border shadow-sm space-y-3">
+          <h2 className="text-xl font-black italic uppercase">Gestión de Cuentas</h2>
+          <input value={nm} onChange={e=>setNm(e.target.value)} placeholder="Nombre del contacto" className="w-full p-3 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-slate-900 outline-none font-bold"/>
+          <input type="number" value={amt} onChange={e=>setAmt(e.target.value)} placeholder="Monto" className="w-full p-3 bg-slate-50 rounded-2xl border-2 border-transparent outline-none font-black text-lg"/>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={()=>setTp('por_cobrar')} className={`py-3 rounded-xl font-black text-xs ${tp==='por_cobrar'?'bg-emerald-600 text-white':'bg-slate-100 text-slate-500'}`}>A MÍ ME DEBEN</button>
+            <button onClick={()=>setTp('por_pagar')}  className={`py-3 rounded-xl font-black text-xs ${tp==='por_pagar'?'bg-red-600 text-white':'bg-slate-100 text-slate-500'}`}>YO DEBO</button>
+          </div>
+          <button onClick={add} disabled={!nm||!amt} className="w-full bg-slate-900 text-white rounded-2xl font-black py-3 disabled:opacity-40">AGREGAR</button>
+        </div>
+        {[{label:'Cuentas por Cobrar',filter:'por_cobrar',color:'emerald-600'},{label:'Cuentas por Pagar',filter:'por_pagar',color:'red-600'}].map(({label,filter,color})=>(
+          <div key={filter} className="bg-white rounded-3xl border shadow-sm overflow-hidden">
+            <div className="p-4 border-b"><span className={`font-black uppercase tracking-widest text-${color}`} style={{fontSize:'10px'}}>{label}</span></div>
+            {state.debts.filter(d=>d.type===filter).length===0
+              ? <p className="p-6 text-center text-slate-300 italic font-bold">Vacío</p>
+              : state.debts.filter(d=>d.type===filter).map(d=>(
+                  <div key={d.id} className="p-3 flex justify-between items-center border-b last:border-0">
+                    <span className="font-bold text-slate-700">{d.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className={`font-black text-${color}`}>{fmt(d.amount)}</span>
+                      <button onClick={()=>upd({debts:state.debts.filter(x=>x.id!==d.id)})} className="text-slate-300"><Ic k="X" size={14}/></button>
+                    </div>
+                  </div>
+                ))
+            }
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ── CIERRE ─────────────────────────────────────────────────────
+  const CashClosureView = () => {
+    const [cc,setCc]=useState('');
+    const [cb,setCb]=useState('');
+    const [note,setNote]=useState('');
+    const [done,setDone]=useState(false);
+    const pc=parseFloat(cc)||0, pb=parseFloat(cb)||0;
+    const dc=pc-bal.ef, db=pb-bal.bn, dt=dc+db;
+
+    const close = () => {
+      const date=new Date().toISOString();
+      const tx=[...state.transactions];
+      if(dc!==0)tx.push({id:Date.now(),type:dc>0?'ingreso':'gasto',category:'ajuste',method:'efectivo',amount:Math.abs(dc),description:`Ajuste cierre — efectivo ${dc>0?'sobrante':'faltante'}`,date});
+      if(db!==0)tx.push({id:Date.now()+1,type:db>0?'ingreso':'gasto',category:'ajuste',method:'banco',amount:Math.abs(db),description:`Ajuste cierre — banco ${db>0?'sobrante':'faltante'}`,date});
+      upd({transactions:tx,cashClosures:[{id:Date.now()+2,date,sysCash:bal.ef,sysBank:bal.bn,physCash:pc,physBank:pb,dc,db,note},...state.cashClosures]});
+      setCc(''); setCb(''); setNote('');
+      setDone(true); setTimeout(()=>setDone(false),2500);
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-white p-5 rounded-3xl border shadow-sm space-y-4">
+          <div>
+            <h2 className="text-xl font-black italic uppercase">Cierre de Caja</h2>
+            <p className="text-slate-400 mt-1" style={{fontSize:'11px'}}>Ingresa lo físico contado. Los saldos se ajustan solos.</p>
+          </div>
+          <div className="p-4 bg-slate-950 text-white rounded-2xl space-y-2">
+            <p className="font-bold text-slate-500 uppercase tracking-widest" style={{fontSize:'9px'}}>Saldo en Sistema</p>
+            <div className="flex justify-between text-sm opacity-70"><span>Efectivo:</span><span className="font-black">{fmt(bal.ef)}</span></div>
+            <div className="flex justify-between text-sm opacity-70"><span>Banco:</span><span className="font-black">{fmt(bal.bn)}</span></div>
+            <div className="pt-2 border-t border-slate-800 flex justify-between font-black text-emerald-400"><span>TOTAL:</span><span>{fmt(bal.ef+bal.bn)}</span></div>
+          </div>
+          <div>
+            <label className="font-black text-slate-400 uppercase block mb-1" style={{fontSize:'10px'}}>💵 Efectivo contado</label>
+            <input type="number" value={cc} onChange={e=>setCc(e.target.value)} placeholder="0" className="w-full p-3 bg-emerald-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-lg"/>
+            {cc!==''&&dc!==0&&<p className={`text-xs font-black mt-1 ${dc<0?'text-red-500':'text-emerald-600'}`}>{dc<0?`▼ Faltante: ${fmt(Math.abs(dc))}`:`▲ Sobrante: ${fmt(dc)}`}</p>}
+          </div>
+          <div>
+            <label className="font-black text-slate-400 uppercase block mb-1" style={{fontSize:'10px'}}>💳 Saldo banco/Nequi</label>
+            <input type="number" value={cb} onChange={e=>setCb(e.target.value)} placeholder="0" className="w-full p-3 bg-blue-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-black text-lg"/>
+            {cb!==''&&db!==0&&<p className={`text-xs font-black mt-1 ${db<0?'text-red-500':'text-emerald-600'}`}>{db<0?`▼ Faltante: ${fmt(Math.abs(db))}`:`▲ Sobrante: ${fmt(db)}`}</p>}
+          </div>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Observaciones..." className="w-full p-3 bg-slate-50 rounded-2xl h-16 text-sm outline-none resize-none font-bold"/>
+          {(cc!==''||cb!=='')&&(
+            <div className={`p-3 rounded-2xl border-2 text-center ${dt===0?'bg-emerald-50 border-emerald-200':'bg-amber-50 border-amber-200'}`}>
+              <p className="font-black uppercase text-slate-500 mb-1" style={{fontSize:'9px'}}>Resultado tras el cierre</p>
+              <p className={`font-black text-lg ${dt===0?'text-emerald-600':dt<0?'text-red-600':'text-amber-600'}`}>{dt===0?'✅ Cuadrado':(dt>0?'+':'')+fmt(dt)}</p>
+            </div>
+          )}
+          <button onClick={close} disabled={cc===''&&cb===''} className={`w-full py-4 rounded-2xl font-black text-lg shadow-xl disabled:opacity-30 transition-all ${done?'bg-emerald-600':'bg-slate-900'} text-white`}>
+            {done?'✅ SALDOS ACTUALIZADOS':'FINALIZAR Y AJUSTAR SALDOS'}
+          </button>
+        </div>
+        <div className="space-y-3">
+          <p className="font-black text-slate-400 uppercase px-1 tracking-widest" style={{fontSize:'10px'}}>Historial de Cierres</p>
+          {state.cashClosures.length===0
+            ? <p className="text-center text-slate-300 font-bold italic p-6">No hay cierres</p>
+            : state.cashClosures.map(c=>(
+                <div key={c.id} className="bg-white p-4 rounded-3xl border shadow-sm">
+                  <p className="font-black text-slate-400 uppercase" style={{fontSize:'10px'}}>{new Date(c.date).toLocaleDateString('es-CO')} {new Date(c.date).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</p>
+                  <div className="flex gap-4 mt-1"><p className="font-black text-sm">💵 {fmt(c.physCash)}</p><p className="font-black text-sm">💳 {fmt(c.physBank)}</p></div>
+                  {c.note&&<p className="text-slate-400 italic mt-1" style={{fontSize:'10px'}}>{c.note}</p>}
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {c.dc!==0&&<span className={`font-black px-2 py-1 rounded-lg text-xs ${c.dc<0?'bg-red-50 text-red-600':'bg-emerald-50 text-emerald-600'}`}>Efectivo {c.dc>0?'+':''}{fmt(c.dc)}</span>}
+                    {c.db!==0&&<span className={`font-black px-2 py-1 rounded-lg text-xs ${c.db<0?'bg-red-50 text-red-600':'bg-emerald-50 text-emerald-600'}`}>Banco {c.db>0?'+':''}{fmt(c.db)}</span>}
+                    {c.dc===0&&c.db===0&&<span className="font-black px-2 py-1 rounded-lg text-xs bg-emerald-50 text-emerald-600">Cuadrado ✅</span>}
+                  </div>
+                </div>
+              ))
+          }
+        </div>
+      </div>
+    );
+  };
+
+  // ── INVENTARIO ─────────────────────────────────────────────────
+  const InventoryView = () => {
+    const [mode,setMode]=useState('insumos');
+    const [nm,setNm]=useState('');
+    const [pr,setPr]=useState('');
+    const [st,setSt]=useState('');
+    const [rec,setRec]=useState([]);
+    const [ping,setPing]=useState(null);
+    const [pqty,setPqty]=useState('1');
+
+    const ins=state.inventory.filter(i=>!i.isProduct);
+    const pros=state.inventory.filter(i=>i.isProduct);
+
+    const addIns=()=>{
+      if(!nm||!st)return;
+      upd({inventory:[...state.inventory,{id:Date.now().toString(),name:nm,stock:parseFloat(st),isProduct:false}]});
+      setNm(''); setSt('');
+    };
+    const addProd=()=>{
+      if(!nm||!pr)return;
+      upd({inventory:[...state.inventory,{id:Date.now().toString(),name:nm,price:parseFloat(pr),isProduct:true,recipe:[...rec]}]});
+      setNm(''); setPr(''); setRec([]);
+    };
+    const confirmIng=()=>{
+      if(!ping||!pqty)return;
+      setRec([...rec,{id:ping.id,name:ping.name,qty:parseFloat(pqty)}]);
+      setPing(null); setPqty('1');
+    };
+    const adjSt=(id,d)=>upd({inventory:state.inventory.map(i=>i.id===id?{...i,stock:Math.max(0,(parseFloat(i.stock)||0)+d)}:i)});
+    const del=id=>upd({inventory:state.inventory.filter(x=>x.id!==id)});
+
+    return (
+      <div className="space-y-4">
+        <div className="flex bg-slate-200 p-1 rounded-2xl">
+          <button onClick={()=>setMode('insumos')} className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${mode==='insumos'?'bg-white text-slate-900 shadow-md':'text-slate-500'}`}>INSUMOS</button>
+          <button onClick={()=>setMode('productos')} className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${mode==='productos'?'bg-white text-slate-900 shadow-md':'text-slate-500'}`}>PRODUCTOS</button>
+        </div>
+
+        {mode==='insumos'?(
+          <div className="space-y-4">
+            <div className="bg-white p-4 rounded-3xl border shadow-sm space-y-3">
+              <input value={nm} onChange={e=>setNm(e.target.value)} placeholder="Nombre del insumo" className="w-full p-3 bg-slate-50 border-2 border-transparent rounded-2xl outline-none font-bold"/>
+              <input type="number" value={st} onChange={e=>setSt(e.target.value)} placeholder="Cantidad inicial" className="w-full p-3 bg-slate-50 border-2 border-transparent rounded-2xl outline-none font-black text-emerald-600 text-lg"/>
+              <button onClick={addIns} disabled={!nm||!st} className="w-full bg-slate-900 text-white py-3 rounded-2xl font-black disabled:opacity-40">CREAR INSUMO</button>
+            </div>
+            <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
+              {ins.length===0?<p className="p-8 text-center text-slate-300 italic font-bold">No hay insumos</p>
+                :ins.map(i=>(
+                  <div key={i.id} className="p-4 flex items-center gap-3 border-b last:border-0">
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-700 uppercase text-sm">{i.name}</p>
+                      <p className={`font-black text-lg ${i.stock<5?'text-red-500':'text-emerald-600'}`}>{i.stock} und</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={()=>adjSt(i.id,-1)} className="w-8 h-8 bg-red-50 text-red-600 rounded-xl font-black text-lg flex items-center justify-center">-</button>
+                      <button onClick={()=>adjSt(i.id, 1)} className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-xl font-black text-lg flex items-center justify-center">+</button>
+                      <button onClick={()=>del(i.id)} className="text-slate-300 ml-1"><Ic k="Trash" size={15}/></button>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        ):(
+          <div className="space-y-4">
+            <div className="bg-white p-4 rounded-3xl border shadow-sm space-y-3">
+              <h3 className="font-black text-slate-900 uppercase italic">Nuevo Producto</h3>
+              <input value={nm} onChange={e=>setNm(e.target.value)} placeholder="Nombre del producto" className="w-full p-3 bg-slate-50 border-2 border-transparent rounded-2xl outline-none font-bold uppercase"/>
+              <input type="number" value={pr} onChange={e=>setPr(e.target.value)} placeholder="Precio de venta" className="w-full p-3 bg-slate-50 border-2 border-transparent rounded-2xl outline-none font-black text-emerald-600 text-lg"/>
+              {ins.length>0&&(
+                <div className="pt-2 border-t space-y-2">
+                  <p className="font-black text-slate-400 uppercase" style={{fontSize:'10px'}}>Receta (insumos que descuenta):</p>
+                  <div className="flex flex-wrap gap-2">{ins.map(x=>(
+                    <button key={x.id} onClick={()=>{setPing(x);setPqty('1');}} className="bg-slate-100 px-3 py-1.5 rounded-xl font-bold text-xs uppercase transition-all active:bg-emerald-600 active:text-white">+ {x.name}</button>
+                  ))}</div>
+                  {ping&&(
+                    <div className="bg-emerald-50 p-3 rounded-2xl border-2 border-emerald-200 space-y-2">
+                      <p className="font-black text-emerald-800 uppercase" style={{fontSize:'10px'}}>Cantidad de {ping.name}:</p>
+                      <div className="flex gap-2">
+                        <input type="number" value={pqty} onChange={e=>setPqty(e.target.value)} autoFocus className="flex-1 p-2 rounded-xl border-2 border-emerald-300 font-black text-xl outline-none text-center"/>
+                        <button onClick={confirmIng} className="bg-emerald-600 text-white px-4 rounded-xl font-black">OK</button>
+                        <button onClick={()=>setPing(null)} className="text-slate-400 px-2"><Ic k="X" size={16}/></button>
+                      </div>
+                    </div>
+                  )}
+                  {rec.map((r,idx)=>(
+                    <div key={idx} className="flex justify-between items-center bg-slate-900 text-white p-2.5 rounded-xl font-black uppercase" style={{fontSize:'10px'}}>
+                      <span>{r.name} <span className="text-emerald-400">×{r.qty}</span></span>
+                      <button onClick={()=>setRec(rec.filter((_,i)=>i!==idx))}><Ic k="X" size={12} cls="text-white"/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={addProd} disabled={!nm||!pr} className="w-full bg-emerald-600 text-white py-3 rounded-2xl font-black text-base shadow-xl active:scale-95 disabled:opacity-40">CREAR PRODUCTO</button>
+            </div>
+            <div className="space-y-3">
+              {pros.length===0?<p className="p-8 text-center text-slate-300 font-bold italic">No hay productos</p>
+                :pros.map(p=>(
+                  <div key={p.id} className="bg-white p-4 rounded-3xl border shadow-sm flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-black text-slate-800 uppercase">{p.name}</p>
+                      <p className="text-emerald-600 font-black text-lg">{fmt(p.price)}</p>
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {p.recipe?.length>0?p.recipe.map((r,i)=><span key={i} className="bg-slate-50 text-slate-400 px-2 py-0.5 rounded-lg font-black border uppercase" style={{fontSize:'9px'}}>-{r.qty} {r.name}</span>):<span className="text-red-300 font-bold" style={{fontSize:'9px'}}>Sin receta</span>}
+                      </div>
+                    </div>
+                    <button onClick={()=>del(p.id)} className="text-slate-300 ml-3"><Ic k="Trash" size={16}/></button>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const views={inicio:DashboardView,ventas:SalesView,gastos:ExpensesView,inventario:InventoryView,cierre:CashClosureView,cuentas:DebtsView};
+  const View=views[view]||DashboardView;
+
+  return (
+    <div className="flex min-h-screen bg-slate-50 text-slate-900">
+      <Sidebar/>
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto pb-24 md:pb-8" style={{minHeight:'100vh'}}>
+        <div className="max-w-2xl mx-auto"><View/></div>
+      </main>
+      <BottomNav/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
